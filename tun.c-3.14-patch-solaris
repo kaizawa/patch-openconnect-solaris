@@ -1,0 +1,58 @@
+--- tun.c.org	Wed Nov 23 09:17:06 2011
++++ tun.c	Wed Nov 23 09:25:33 2011
+@@ -579,9 +579,18 @@
+ 	unsigned char buf[2000];
+ 	int len;
+ 	int work_done = 0;
++#ifdef __sun__
++	int i;
++	struct ip *iphdr;
++	int left = 0;
++#endif
+ 
+ 	if (FD_ISSET(vpninfo->tun_fd, &vpninfo->select_rfds)) {
++#ifdef __sun__
++		while ((len = read(vpninfo->tun_fd, &buf[left], sizeof(buf) - left)) > 0) {
++#else
+ 		while ((len = read(vpninfo->tun_fd, buf, sizeof(buf))) > 0) {
++#endif
+ 			unsigned char *pkt = buf;
+ #ifdef TUN_HAS_AF_PREFIX
+ 			if (!vpninfo->script_tun) {
+@@ -589,6 +598,28 @@
+ 				len -= 4;
+ 			}
+ #endif
++#ifdef __sun__
++			left = left + len;
++			while (left > 0){
++				int iplen;
++				iphdr = (struct ip *) pkt;
++				iplen = ntohs(iphdr->ip_len);
++				if(iplen > left){
++					/* ip data is incomplete at this moment.
++					 * Copy current part of data to the begining of 
++					 * buf and wating for next data 
++					 */
++					memmove((void *)buf, (void *)pkt, left); 
++					break;
++				}
++				if (queue_new_packet(&vpninfo->outgoing_queue, pkt, iplen))
++					break;
++				left -= iplen; 
++				pkt += iplen;
++				vpninfo->outgoing_qlen++;
++			}
++			work_done = 1;
++#else
+ 			if (queue_new_packet(&vpninfo->outgoing_queue, pkt,
+ 					     len))
+ 				break;
+@@ -595,6 +626,7 @@
+ 
+ 			work_done = 1;
+ 			vpninfo->outgoing_qlen++;
++#endif
+ 			if (vpninfo->outgoing_qlen == vpninfo->max_qlen) {
+ 				FD_CLR(vpninfo->tun_fd, &vpninfo->select_rfds);
+ 				break;

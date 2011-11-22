@@ -1,0 +1,22 @@
+This is a patch for OpenConnect VPN client 3.14 for Solaris.
+
+How To Apply
+--------------
+Run patch command against tun.c included in OpenConnect VPN Client 3.14
+
+$ cd openconnect-3.14/
+$ patch -p 0 tun.c patch-openconnect-solaris
+
+How To Compile
+--------------
+Note that configure script of openconnect requires pkg-config command installed.
+Install developer/gnome/gettex to install pkg-config command if your system doesn't have pkg-config install.
+
+ $ sudo pkg install developer/gnome/gettext
+
+Then, run configure and gmake/gmake install.
+
+ $ ./configure --disable-nls
+ $ gmake
+ $ sudo gmake install
+
